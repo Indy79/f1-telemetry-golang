@@ -145,7 +145,6 @@ func main() {
 }
 
 func byteReader(buffer *bytes.Buffer) func(data interface{}) error {
-	fmt.Println(buffer)
 	return func(data interface{}) error {
 		err := binary.Read(buffer, binary.LittleEndian, data)
 		if err != nil {
