@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"fr.serli.f1/application/packets"
 	"fr.serli.f1/application/packets/car"
@@ -25,7 +26,8 @@ func main() {
 	if err != nil {
 		fmt.Printf("Cannot parse port : %v", err)
 	}
-	p := make([]byte, 2048)
+	buff := new(bytes.Buffer)
+	reader := byteReader(buff)
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(""),
@@ -37,15 +39,13 @@ func main() {
 	}
 	for {
 		var header packets.PacketHeader
-		_, _, udperr := conn.ReadFromUDP(p)
+		_, _, udperr := conn.ReadFromUDP(buff.Bytes())
 		if udperr != nil {
 			fmt.Printf("an error occured")
 		}
-		buffer := bytes.NewReader(p)
-		err := binary.Read(buffer, binary.LittleEndian, &header)
+		err := reader(&header)
 		if err != nil {
-			fmt.Printf("Some error  %v", err)
-			continue
+			fmt.Printf("ooooopss %v", err)
 		}
 		// Create a new client using an InfluxDB server base URL and an authentication token
 		// and set batch size to 20
@@ -62,7 +62,7 @@ func main() {
 		switch header.PacketId {
 		case 0:
 			var motion packets.PacketMotionData
-			err := binary.Read(buffer, binary.LittleEndian, &motion)
+			err := reader(&motion)
 			if err != nil {
 				fmt.Printf("Some error  %v", err)
 				continue
@@ -81,7 +81,7 @@ func main() {
 			break
 		case 1:
 			var session packets.PacketSessionData
-			err := binary.Read(buffer, binary.LittleEndian, &session)
+			err := reader(&session)
 			if err != nil {
 				fmt.Printf("Some error  %v", err)
 				continue
@@ -92,7 +92,7 @@ func main() {
 				map[string]string{
 					"PacketId":       string(header.PacketId),
 					"PlayerCarIndex": string(header.PlayerCarIndex),
-					"SessionUID":     string(header.SessionUID),
+					"SessionUID":     strconv.FormatUint(header.SessionUID, 10),
 				},
 				sessionMap.Map(),
 				time.Now())
@@ -100,7 +100,7 @@ func main() {
 			break
 		case 6:
 			var telemetry car.PacketCarTelemetryData
-			err := binary.Read(buffer, binary.LittleEndian, &telemetry)
+			err := reader(&telemetry)
 			if err != nil {
 				fmt.Printf("Some error  %v", err)
 				continue
@@ -112,7 +112,7 @@ func main() {
 				map[string]string{
 					"PacketId":       string(header.PacketId),
 					"PlayerCarIndex": string(header.PlayerCarIndex),
-					"SessionUID":     string(header.SessionUID),
+					"SessionUID":     strconv.FormatUint(header.SessionUID, 10),
 				},
 				telemetryMap.Map(),
 				time.Now())
@@ -120,7 +120,7 @@ func main() {
 			break
 		case 7:
 			var status car.PacketCarStatusData
-			err := binary.Read(buffer, binary.LittleEndian, &status)
+			err := reader(&status)
 			if err != nil {
 				fmt.Printf("Some error  %v", err)
 				continue
@@ -132,7 +132,7 @@ func main() {
 				map[string]string{
 					"PacketId":       string(header.PacketId),
 					"PlayerCarIndex": string(header.PlayerCarIndex),
-					"SessionUID":     string(header.SessionUID),
+					"SessionUID":     strconv.FormatUint(header.SessionUID, 10),
 				},
 				statusMap.Map(),
 				time.Now())
@@ -142,4 +142,16 @@ func main() {
 
 	}
 	conn.Close()
+}
+
+func byteReader(buffer *bytes.Buffer) func(data interface{}) error {
+	fmt.Println(buffer)
+	return func(data interface{}) error {
+		err := binary.Read(buffer, binary.LittleEndian, data)
+		if err != nil {
+			fmt.Printf("some parsing error : %v", err)
+			return errors.New("cannot parse binary")
+		}
+		return nil
+	}
 }
