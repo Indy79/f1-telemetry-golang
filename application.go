@@ -8,15 +8,26 @@ import (
 	"fr.serli.f1/application/packets/car"
 	"github.com/fatih/structs"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/joho/godotenv"
+	"log"
 	"net"
+	"os"
 	"strconv"
 	"time"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	port, err := strconv.Atoi(os.Getenv("F1-SERVER-PORT"))
+	if err != nil {
+		fmt.Printf("Cannot parse port : %v", err)
+	}
 	p := make([]byte, 2048)
 	addr := net.UDPAddr{
-		Port: 20777,
+		Port: port,
 		IP:   net.ParseIP(""),
 	}
 	conn, err := net.ListenUDP("udp", &addr)
@@ -38,10 +49,15 @@ func main() {
 		}
 		// Create a new client using an InfluxDB server base URL and an authentication token
 		// and set batch size to 20
-		client := influxdb2.NewClientWithOptions("http://localhost:8086", "mytoken",
-			influxdb2.DefaultOptions().SetBatchSize(20))
+
+		token := os.Getenv("INFLUX_TOKEN")
+		influxDbUrl := os.Getenv("INFLUX_URI")
+		organisation := os.Getenv("INFLUX_ORGA")
+		bucket := os.Getenv("INFLUX_BUCKET")
+
+		client := influxdb2.NewClientWithOptions(influxDbUrl, token, influxdb2.DefaultOptions().SetBatchSize(20))
 		// Get non-blocking write client
-		writeAPI := client.WriteAPI("serli-fia", "serli-bucket")
+		writeAPI := client.WriteAPI(organisation, bucket)
 
 		switch header.PacketId {
 		case 0:

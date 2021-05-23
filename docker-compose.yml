@@ -13,7 +13,7 @@ services:
       - influxdb
     image: influxdb:latest
     # Use these same configurations parameters in your telegraf configuration, mytelegraf.conf.
-    entrypoint: influx setup --bucket $INFLUX_BUCKET -t mytoken -o serli-fia --username=$INFLUXDB_USER --password=$INFLUXDB_USER_PASSWORD --host=http://influxdb:8086 -f
+    entrypoint: influx setup --bucket $INFLUXDB_BUCKET -t $INFLUXDB_TOKEN -o $INFLUXDB_ORGA --username=$INFLUXDB_USER --password=$INFLUXDB_USER_PASSWORD --host=http://influxdb:8086 -f
     # Wait for the influxd service in the influxdb container has fully bootstrapped before trying to setup an influxdb instance with the influxdb_cli service.
     restart: on-failure:10
     depends_on:
